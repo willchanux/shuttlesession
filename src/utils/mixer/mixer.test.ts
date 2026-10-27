@@ -306,12 +306,15 @@ describe("explaining a suggestion", () => {
           repeatedPairs: [{ ids: [players[0].id, players[1].id], times: 3 }], costs: {},
         },
       },
-      pool
+      pool,
+      [{ master: players[2].id, partner: players[3].id }]
     );
     const lines = explainSuggestion(players)!;
     expect(lines[0]).toBe(`${players[0].name} has been waiting longest.`);
     expect(lines.join(" ")).toContain("4 of the 6 pairings are new tonight.");
-    expect(lines.join(" ")).toContain("shared 3 games");
+    expect(lines.join(" ")).not.toContain("shared");
+    expect(lines.join(" ")).not.toMatch(/format|Open|Mixed/);
+    expect(lines.join(" ")).toContain(`${players[2].name} and ${players[3].name} are piggybacked, so they play together.`);
     expect(lines.join(" ")).toContain(`Passed over this time: ${pool[5].name}.`);
   });
 

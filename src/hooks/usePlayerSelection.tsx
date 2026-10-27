@@ -42,7 +42,7 @@ export function usePlayerSelection(queue: Player[], options?: UsePlayerSelection
         return [];
       }
       if (result.gameType) planFormat(result.players, result.gameType);
-      rememberSuggestion(result, poolPlayers);
+      rememberSuggestion(result, poolPlayers, piggybackPairs);
       return result.players;
     }
 

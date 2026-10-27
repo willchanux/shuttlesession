@@ -30,6 +30,7 @@ interface Suggestion {
   reasons: SelectionReasons;
   gameType: GameType | null;
   names: Map<number, string>;
+  piggybackPairs: { master: number; partner: number }[];
 }
 
 let current: Suggestion | null = null;
@@ -40,7 +41,11 @@ const keyOf = (players: { id: number }[]) =>
     .sort((a, b) => a - b)
     .join("-");
 
-export function rememberSuggestion(result: SelectGameResult, pool: { id: number; name: string }[] = []): void {
+export function rememberSuggestion(
+  result: SelectGameResult,
+  pool: { id: number; name: string }[] = [],
+  piggybackPairs: { master: number; partner: number }[] = []
+): void {
   current = {
     key: keyOf(result.players),
     chosenIds: result.players.map(p => p.id),
@@ -48,6 +53,7 @@ export function rememberSuggestion(result: SelectGameResult, pool: { id: number;
     reasons: result.reasons,
     gameType: result.gameType,
     names: new Map([...pool, ...result.players].map(p => [p.id, p.name])),
+    piggybackPairs,
   };
 }
 
@@ -101,9 +107,10 @@ export function explainSuggestion(players: { id: number }[]): string[] | null {
   if (reasons.freshPairs === 6) lines.push("Everyone is playing with someone new.");
   else if (reasons.freshPairs > 0) lines.push(`${reasons.freshPairs} of the 6 pairings are new tonight.`);
 
-  const mostRepeated = [...reasons.repeatedPairs].sort((a, b) => b.times - a.times)[0];
-  if (mostRepeated && mostRepeated.times >= 2) {
-    lines.push(`${list(mostRepeated.ids)} have shared ${mostRepeated.times} games already.`);
+  for (const pair of current.piggybackPairs) {
+    if (players.some(p => p.id === pair.master) && players.some(p => p.id === pair.partner)) {
+      lines.push(`${list([pair.master, pair.partner])} are piggybacked, so they play together.`);
+    }
   }
 
   if (reasons.skipped.length > 0) {
