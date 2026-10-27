@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
+import { PointerEventsGuard } from "./components/PointerEventsGuard";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import Settings from "./pages/Settings";
@@ -24,6 +25,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <PointerEventsGuard />
         <Routes>
           {/* Landing page as the root */}
           <Route path="/" element={<LandingPage />} />

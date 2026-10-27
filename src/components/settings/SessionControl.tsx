@@ -40,7 +40,9 @@ export function SessionControl() {
     if (!showEndDialog && shouldEndSession) {
       // Show Player of Session dialog if score keeping is enabled
       if (scoreKeeping) {
-        setShowPlayerOfSession(true);
+        // Let the confirmation finish closing before the next dialog opens:
+        // two dialogs changing at once can leave the page unclickable
+        setTimeout(() => setShowPlayerOfSession(true), 300);
       } else {
         finishEndSession();
       }
@@ -117,7 +119,9 @@ export function SessionControl() {
         isOpen={showPlayerOfSession} 
         onClose={() => {
           setShowPlayerOfSession(false);
-          finishEndSession();
+          // Leave the page only once the dialog has finished closing; going
+          // away while it is still open leaves the next page unclickable
+          setTimeout(finishEndSession, 300);
         }} 
       />
     </div>
