@@ -10,6 +10,32 @@ export interface SessionStats {
 const SESSION_STATS_KEY = "currentSessionStats";
 const COOLING_PERIOD_GAMES = 2; // Number of games to wait before prioritizing again
 const RECENT_COMBINATIONS_LIMIT = 5; // Track last 5 combinations per player
+// If nothing has happened for this long, saved stats belong to an earlier session
+const SESSION_GAP_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * True when saved session stats are too old to be part of the current session:
+ * the latest activity (the most recent game, or the session start if no game has
+ * been played) is further back than `gapMs`.
+ *
+ * Sessions are normally cleared when they are ended, but if the app is simply
+ * closed that never happens, and last week's games would otherwise count as
+ * "tonight" for repeat scoring.
+ */
+export function isStaleSession(
+  stats: Iterable<SessionStats>,
+  sessionStart: number,
+  now: number,
+  gapMs: number = SESSION_GAP_MS
+): boolean {
+  let lastActivity = sessionStart;
+  for (const playerStats of stats) {
+    if (playerStats.lastGameTime && playerStats.lastGameTime > lastActivity) {
+      lastActivity = playerStats.lastGameTime;
+    }
+  }
+  return now - lastActivity > gapMs;
+}
 
 export class SessionTracker {
   private stats: Map<number, SessionStats> = new Map();
@@ -24,8 +50,19 @@ export class SessionTracker {
       const stored = localStorage.getItem(SESSION_STATS_KEY);
       if (stored) {
         const data = JSON.parse(stored);
-        this.stats = new Map(data.stats || []);
-        this.sessionStartTime = data.sessionStart || Date.now();
+        const stats = new Map<number, SessionStats>(data.stats || []);
+        const sessionStart: number = data.sessionStart || Date.now();
+
+        if (isStaleSession(stats.values(), sessionStart, Date.now())) {
+          // Left over from an earlier session that was never ended: start afresh
+          this.stats = new Map();
+          this.sessionStartTime = Date.now();
+          this.saveToStorage();
+          return;
+        }
+
+        this.stats = stats;
+        this.sessionStartTime = sessionStart;
       }
     } catch (e) {
       console.error("Error loading session stats:", e);

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerOfSessionDialog } from "@/components/PlayerOfSessionDialog";
 import { clearSessionScores } from "@/utils/storageUtils";
+import { sessionTracker } from "@/utils/sessionTracking";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,7 +59,10 @@ export function SessionControl() {
     
     // Clear session-specific scores
     clearSessionScores();
-    
+
+    // Forget who has played with whom, so the next session starts with a clean slate
+    sessionTracker.resetSession();
+
     // Navigate back to splash screen
     navigate("/app");
     
