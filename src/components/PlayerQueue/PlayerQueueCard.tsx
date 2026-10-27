@@ -113,15 +113,6 @@ export function PlayerQueueCard({
             W {player.sessionWins || 0} – L {player.sessionLosses || 0}
           </span>
         )}
-        {preferencesEnabled && player.playPreferences && player.playPreferences.length > 0 && (
-          <div className="flex gap-1 ml-2">
-            {player.playPreferences.map((pref) => (
-              <Badge key={pref} variant="outline" className="text-xs">
-                {pref}
-              </Badge>
-            ))}
-          </div>
-        )}
       </div>
       
       {/* Player Actions Menu */}
