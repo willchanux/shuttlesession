@@ -3,6 +3,7 @@ import React from "react";
 import { PlayerPoolSizeSetting } from "./PlayerPoolSizeSetting";
 import { CourtNumberSetting } from "./CourtNumberSetting";
 import { PlayerPreferencesSetting } from "./PlayerPreferencesSetting";
+import { SelectionEngineSetting } from "./SelectionEngineSetting";
 import { ScoreKeepingSetting } from "./ScoreKeepingSetting";
 import { PiggybackSetting } from "./PiggybackSetting";
 import { 
@@ -37,6 +38,7 @@ export const PreSessionSettings: React.FC<PreSessionSettingsProps> = ({ isOpen, 
             <PlayerPoolSizeSetting />
             <CourtNumberSetting />
             <PlayerPreferencesSetting />
+            <SelectionEngineSetting />
             <ScoreKeepingSetting />
             <PiggybackSetting />
           </div>
