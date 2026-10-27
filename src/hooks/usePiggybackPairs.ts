@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { Player } from "../types/player";
+import { movePairTogether, restorePosition } from "../utils/piggybackQueue";
 
 // Each pair has a master and a partner; one player can only be in one pair.
 export type PiggybackPair = { master: number; partner: number };
@@ -51,39 +52,18 @@ export function usePiggybackPairs(queueManipulation?: {
 
   // Add a new pair, removing the players from any previous pairs
   function addPair(master: number, partner: number) {
-    // Store original position of master if queue manipulation is available
+    // Bring the pair together: whoever is earlier in the queue moves down to sit
+    // above the later one, so no one jumps ahead and the later player is not pulled up
     if (queueManipulation) {
-      const currentQueue = queueManipulation.getQueue();
-      const masterIndex = currentQueue.findIndex(p => p.id === master);
-      const partnerIndex = currentQueue.findIndex(p => p.id === partner);
-      
-      if (masterIndex !== -1 && partnerIndex !== -1) {
-        // Store master's original position
+      const move = movePairTogether(queueManipulation.getQueue(), master, partner);
+      if (move.moverId !== null && move.originalIndex !== null) {
         const originalPositions = getOriginalPositions();
-        originalPositions[master] = masterIndex;
+        originalPositions[move.moverId] = move.originalIndex;
         saveOriginalPositions(originalPositions);
-        
-        // Move master to be just above partner (partner position - 1)
-        const targetPosition = Math.max(0, partnerIndex);
-        
-        queueManipulation.setQueue(prevQueue => {
-          const newQueue = [...prevQueue];
-          const masterPlayer = newQueue[masterIndex];
-          
-          // Remove master from current position
-          newQueue.splice(masterIndex, 1);
-          
-          // Adjust target position if master was before partner
-          const adjustedTarget = masterIndex < partnerIndex ? targetPosition - 1 : targetPosition;
-          
-          // Insert master at target position
-          newQueue.splice(adjustedTarget, 0, masterPlayer);
-          
-          return newQueue;
-        });
+        queueManipulation.setQueue(() => move.queue);
       }
     }
-    
+
     // Remove both if they exist elsewhere
     let newPairs = piggybackPairs.filter(pair =>
       pair.master !== master &&
@@ -97,39 +77,21 @@ export function usePiggybackPairs(queueManipulation?: {
 
   // Remove a pair if player is the master
   function removePairByMaster(master: number) {
-    // Restore master's original position if available
+    // Put back whichever of the two was moved down to join the other
     if (queueManipulation) {
+      const pair = piggybackPairs.find(p => p.master === master);
       const originalPositions = getOriginalPositions();
-      const originalPosition = originalPositions[master];
-      
-      if (typeof originalPosition === 'number') {
-        const currentQueue = queueManipulation.getQueue();
-        const currentMasterIndex = currentQueue.findIndex(p => p.id === master);
-        
-        if (currentMasterIndex !== -1) {
-          queueManipulation.setQueue(prevQueue => {
-            const newQueue = [...prevQueue];
-            const masterPlayer = newQueue[currentMasterIndex];
-            
-            // Remove master from current position
-            newQueue.splice(currentMasterIndex, 1);
-            
-            // Find best position to restore (original or next best available)
-            const targetPosition = Math.min(originalPosition, newQueue.length);
-            
-            // Insert master at target position
-            newQueue.splice(targetPosition, 0, masterPlayer);
-            
-            return newQueue;
-          });
-        }
-        
-        // Clean up stored position
-        delete originalPositions[master];
-        saveOriginalPositions(originalPositions);
+      let restored = false;
+      for (const id of [master, pair?.partner]) {
+        if (id === undefined || typeof originalPositions[id] !== "number") continue;
+        const originalIndex = originalPositions[id];
+        queueManipulation.setQueue(prevQueue => restorePosition(prevQueue, id, originalIndex));
+        delete originalPositions[id];
+        restored = true;
       }
+      if (restored) saveOriginalPositions(originalPositions);
     }
-    
+
     persist(piggybackPairs.filter(pair => pair.master !== master));
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Player } from "@/types/player";
 import { PlayPreference } from "@/types/member";
 import { useDashboardLogic } from "@/hooks/useDashboardLogic";
@@ -16,6 +16,12 @@ export function DashboardProviderLogic({ children }: { children: React.ReactNode
   const [queueState, setQueue] = useState<Player[]>([]);
   const [courtsState, setCourts] = useState<any[]>([]);
 
+  // The queue the app actually selects from lives in useDashboardLogic below, and
+  // queueState above is only a copy of it for display. Piggybacking has to reorder
+  // the real queue, or the display shows one order while auto-select uses another.
+  const realQueueRef = useRef<Player[]>([]);
+  const syncRealQueueRef = useRef<(queue: Player[]) => void>(() => {});
+
   // Piggyback pairs state with queue manipulation
   const {
     piggybackPairs,
@@ -24,8 +30,8 @@ export function DashboardProviderLogic({ children }: { children: React.ReactNode
     findPairOf,
     clearAllPairs
   } = usePiggybackPairs({
-    getQueue: () => queueState,
-    setQueue
+    getQueue: () => realQueueRef.current,
+    setQueue: updater => syncRealQueueRef.current(updater(realQueueRef.current))
   });
 
   // Main dashboard logic
@@ -54,6 +60,9 @@ export function DashboardProviderLogic({ children }: { children: React.ReactNode
     removePiggybackPair: removePairByMaster,
     findPiggybackPair: findPairOf
   });
+
+  realQueueRef.current = queue;
+  syncRealQueueRef.current = syncQueue;
 
   // Sync state with hook values
   useEffect(() => {
