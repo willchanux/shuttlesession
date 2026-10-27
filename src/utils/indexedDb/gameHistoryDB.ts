@@ -46,8 +46,8 @@ export class GameHistoryDB {
     return this.gameRecordsManager.getGameHistory(limit);
   }
 
-  async getGamesWithPlayerIds(playerIds: number[]): Promise<GameRecord[]> {
-    return this.gameRecordsManager.getGamesWithPlayerIds(playerIds);
+  async getGamesWithPlayerIds(playerIds: number[], since = 0): Promise<GameRecord[]> {
+    return this.gameRecordsManager.getGamesWithPlayerIds(playerIds, since);
   }
 
   /**
@@ -57,8 +57,8 @@ export class GameHistoryDB {
     return this.playerStatsManager.getPlayerStats(playerId);
   }
 
-  async getPlayedTogetherCount(playerIds: number[]): Promise<number> {
-    return this.gameRecordsManager.getPlayedTogetherCount(playerIds);
+  async getPlayedTogetherCount(playerIds: number[], since = 0): Promise<number> {
+    return this.gameRecordsManager.getPlayedTogetherCount(playerIds, since);
   }
 
   async migrateFromLocalStorage(): Promise<void> {

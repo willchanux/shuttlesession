@@ -77,6 +77,14 @@ export class SessionTracker {
   }
 
   /**
+   * Timestamp (ms) when the current session started. Used to limit repeat
+   * history to tonight's games rather than every game ever recorded.
+   */
+  getSessionStart(): number {
+    return this.sessionStartTime;
+  }
+
+  /**
    * Get games played count for a player this session
    */
   getGamesPlayedCount(playerId: number): number {

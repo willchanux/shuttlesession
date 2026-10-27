@@ -1,14 +1,16 @@
 
 import { Player } from "../types/player";
 import { generateValidCombinations } from "./playerCombinations";
-import { calculateRepeatPenalty } from "./gameHistory";
+import { getRecentGames } from "./gameHistory";
+import { computeRepeatPenalty, HistoryGame } from "./repeatPenalty";
+import { shuffle } from "./shuffle";
 import { determineBestGameType, determineBestGameTypeWithPiggyback, inferPiggybackGameTypePreference } from "./gameValidation";
 import { sessionTracker } from "./sessionTracking";
 
-// Simplified cache for repeat penalties with memory management
-const repeatPenaltyCache = new Map<string, { penalty: number; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const MAX_CACHE_SIZE = 50;
+// Game history used for repeat scoring. Loaded once at the start of each
+// selection so scoring a candidate group needs no database access.
+let recentGames: HistoryGame[] = [];
+let sessionStart = 0;
 
 // Performance monitoring
 let autoSelectStartTime = 0;
@@ -56,6 +58,15 @@ export const findBestCombination = async (
   autoSelectStartTime = Date.now();
   console.log("Enhanced Auto-select: Starting with", poolPlayers.length, "players");
 
+  // Load tonight's game history once; scoring then runs entirely in memory
+  try {
+    recentGames = await getRecentGames();
+  } catch (e) {
+    console.error("Enhanced Auto-select: Could not load game history, scoring without it", e);
+    recentGames = [];
+  }
+  sessionStart = sessionTracker.getSessionStart();
+
   // Phase 1: Try smart selection with full pool sampling and piggyback awareness
   const smartSelection = await findSmartCombination(poolPlayers, piggybackPairs);
   if (smartSelection.length === 4) {
@@ -64,14 +75,13 @@ export const findBestCombination = async (
     return smartSelection;
   }
 
-  // Phase 2: Check performance budget for fallback
+  // Phase 2: Smart selection found nothing (or ran out of time). The fallback
+  // must always be given the piggyback pairs so it never splits one.
   if (Date.now() - autoSelectStartTime > PERFORMANCE_BUDGET) {
     console.log("Enhanced Auto-select: Using smart fallback due to time limit");
-    return findSmartFallbackCombination(poolPlayers);
+  } else {
+    console.log("Enhanced Auto-select: Using smart fallback");
   }
-
-  // Phase 3: Smart fallback with piggyback awareness
-  console.log("Enhanced Auto-select: Using smart fallback");
   return findSmartFallbackCombination(poolPlayers, piggybackPairs);
 };
 
@@ -82,59 +92,6 @@ function playerAcceptsGameType(player: Player, gameType: string): boolean {
   const prefs = player.playPreferences || [];
   if (prefs.length === 0) return true;
   return prefs.includes(gameType as any);
-}
-
-/**
- * Generate cache key for repeat penalty calculation
- */
-function getCacheKey(combination: Player[]): string {
-  return combination.map(p => p.id).sort().join('-');
-}
-
-/**
- * Clean up expired cache entries
- */
-function cleanupCache() {
-  const now = Date.now();
-  const keysToDelete: string[] = [];
-  
-  for (const [key, value] of repeatPenaltyCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      keysToDelete.push(key);
-    }
-  }
-  
-  keysToDelete.forEach(key => repeatPenaltyCache.delete(key));
-  
-  // Limit cache size
-  if (repeatPenaltyCache.size > MAX_CACHE_SIZE) {
-    const entries = Array.from(repeatPenaltyCache.entries());
-    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    const toDelete = entries.slice(0, entries.length - MAX_CACHE_SIZE);
-    toDelete.forEach(([key]) => repeatPenaltyCache.delete(key));
-  }
-}
-
-/**
- * Get cached or calculate repeat penalty with performance optimization
- */
-async function getCachedRepeatPenalty(combination: Player[]): Promise<number> {
-  const cacheKey = getCacheKey(combination);
-  const cached = repeatPenaltyCache.get(cacheKey);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.penalty;
-  }
-  
-  // For performance, limit penalty calculation complexity
-  const penalty = await calculateRepeatPenalty(combination);
-  
-  repeatPenaltyCache.set(cacheKey, {
-    penalty,
-    timestamp: Date.now()
-  });
-  
-  return penalty;
 }
 
 /**
@@ -169,7 +126,7 @@ async function findSmartCombination(
         continue;
       }
 
-      const score = await calculateEnhancedScore(combination, poolPlayers, piggybackPairs);
+      const score = calculateEnhancedScore(combination, poolPlayers, piggybackPairs);
       if (score > bestScore) {
         bestScore = score;
         bestCombination = combination;
@@ -304,7 +261,7 @@ function generateRandomCombinations(
       if (partner) {
         const remainingOthers = otherPlayers.filter(p => p.id !== partnerId);
         if (remainingOthers.length >= 2) {
-          const shuffled = [...remainingOthers].sort(() => Math.random() - 0.5);
+          const shuffled = shuffle(remainingOthers);
           selectedOthers = [partner, ...shuffled.slice(0, 2)];
         } else {
           continue; // Skip if not enough players
@@ -314,7 +271,7 @@ function generateRandomCombinations(
       }
     } else {
       // Standard random selection with piggyback validation
-      const shuffled = [...otherPlayers].sort(() => Math.random() - 0.5);
+      const shuffled = shuffle(otherPlayers);
       selectedOthers = shuffled.slice(0, 3);
     }
     
@@ -343,18 +300,19 @@ function generateRandomCombinations(
 /**
  * Calculate enhanced score combining multiple factors including piggyback bonuses
  */
-async function calculateEnhancedScore(
-  combination: Player[], 
+function calculateEnhancedScore(
+  combination: Player[],
   poolPlayers: Player[],
   piggybackPairs?: Array<{ master: number; partner: number }>
-): Promise<number> {
+): number {
   // Early validation - immediately reject if piggyback pairs are split
   if (!validatePiggybackIntegrity(combination, piggybackPairs)) {
     return -Infinity;
   }
 
-  // Base score from repeat penalty (lower is better, so negate)
-  const repeatPenalty = await getCachedRepeatPenalty(combination);
+  // Base score from repeat penalty (lower is better, so negate). Counts how
+  // often this group and each pair in it have played together this session.
+  const repeatPenalty = computeRepeatPenalty(combination.map(p => p.id), recentGames, sessionStart);
   const repeatScore = Math.max(0, 50 - repeatPenalty);
 
   // Queue position bonus - rewards players waiting longer
@@ -454,6 +412,10 @@ function findSmartFallbackCombination(
         for (let i = 0; i < otherPlayers.length - 1; i++) {
           for (let j = i + 1; j < otherPlayers.length; j++) {
             const combination = [masterPlayer, partnerPlayer, otherPlayers[i], otherPlayers[j]];
+
+            // The extra two players may belong to other pairs; never split one
+            if (!validatePiggybackIntegrity(combination, piggybackPairs)) continue;
+
             const gameType = determineBestGameTypeWithPiggyback(combination, piggybackPairs);
             
             if (gameType) {
@@ -530,8 +492,3 @@ function findPiggybackAwareFallback(
   console.log("Enhanced Auto-select: No valid combination found that respects piggyback pairs");
   return [];
 }
-
-// Clean up cache periodically
-setInterval(() => {
-  cleanupCache();
-}, 30000); // Every 30 seconds

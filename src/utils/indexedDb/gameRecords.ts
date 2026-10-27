@@ -5,6 +5,7 @@
 
 import { GameRecord } from './types';
 import { DatabaseManager } from './database';
+import { countGamesTogether, gameIncludesAllPlayers } from '../repeatPenalty';
 
 export class GameRecordsManager {
   constructor(private dbManager: DatabaseManager) {}
@@ -79,26 +80,25 @@ export class GameRecordsManager {
     });
   }
 
-  async getGamesWithPlayerIds(playerIds: number[]): Promise<GameRecord[]> {
+  /**
+   * Returns recent games that include every one of `playerIds`, optionally only
+   * those recorded at or after `since` (ms timestamp).
+   *
+   * A game matches when all the given players took part in it, so a pair
+   * lookup finds the four-player games the pair played in. Only id-based
+   * records can match; legacy name-only records are ignored.
+   */
+  async getGamesWithPlayerIds(playerIds: number[], since = 0): Promise<GameRecord[]> {
     const allGames = await this.getGameHistory(200);
-    const sortedIds = [...playerIds].sort();
 
-    return allGames.filter(game => {
-      // Support both legacy (names) and id-based records
-      // Logic: match if all playerIds included
-      if (Array.isArray(game.playerIds)) {
-        return (
-          game.playerIds.length === sortedIds.length &&
-          game.playerIds.every((id: number) => sortedIds.includes(id))
-        );
-      }
-      return false; // Only match on new-style records
-    });
+    return allGames.filter(game =>
+      (game.timestamp ?? 0) >= since && gameIncludesAllPlayers(game, playerIds)
+    );
   }
 
-  async getPlayedTogetherCount(playerIds: number[]): Promise<number> {
-    const games = await this.getGamesWithPlayerIds(playerIds);
-    return games.length;
+  async getPlayedTogetherCount(playerIds: number[], since = 0): Promise<number> {
+    const games = await this.getGameHistory(200);
+    return countGamesTogether(games, playerIds, since);
   }
 
   async clearOldGames(keepDays: number = 30): Promise<void> {
