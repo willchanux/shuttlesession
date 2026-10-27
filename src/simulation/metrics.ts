@@ -1,28 +1,10 @@
 import { Player } from "../types/player";
-import { Family, GameLogEntry, GameType, SessionLog } from "./types";
+import { canPlayBothFamilies, familyOf } from "../utils/mixer/formats";
+import { Family, GameLogEntry, SessionLog } from "./types";
 
-export function familyOf(gameType: GameType | null): Family | null {
-  if (gameType === "Mixed") return "mixed";
-  if (gameType === "Ladies" || gameType === "Open") return "level";
-  return null;
-}
-
-/**
- * Whether the player could be given both kinds of game (Mixed and a level
- * game), judged only on their preferences and gender. Players who can only
- * ever get one kind have nothing to rotate between.
- */
-export function canPlayBothFamilies(player: Player): boolean {
-  const prefs = player.playPreferences ?? [];
-  if (prefs.length === 0) return true;
-
-  const mixed = prefs.includes("Mixed");
-  const level =
-    player.gender === "female"
-      ? prefs.includes("Ladies") || prefs.includes("Open")
-      : prefs.includes("Open");
-  return mixed && level;
-}
+// The rules for what counts as the same format, and who can be rotated, are the
+// engine's own, so the measurements cannot drift from what the engine aims at.
+export { canPlayBothFamilies, familyOf };
 
 /** Raw numbers measured from one simulated session. */
 export interface SessionMetrics {

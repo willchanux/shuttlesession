@@ -18,7 +18,7 @@ import { DEFAULT_SIM_CONFIG, SelectionEngine, SimConfig } from "../src/simulatio
 // complains when run outside a browser. That is expected here, so mute it.
 const originalError = console.error;
 console.error = () => {};
-const { currentEngine, queueOrderEngine } = await import("../src/simulation/engines");
+const { currentEngine, mixerEngine, queueOrderEngine } = await import("../src/simulation/engines");
 await new Promise(resolve => setTimeout(resolve, 0));
 console.error = originalError;
 
@@ -29,7 +29,7 @@ const scenarios: { title: string; config: SimConfig }[] = [
   { title: "22 players on 4 courts (only about 6 waiting)", config: { ...DEFAULT_SIM_CONFIG, courts: 4 } },
 ];
 
-const engines: SelectionEngine[] = [currentEngine, queueOrderEngine];
+const engines: SelectionEngine[] = [currentEngine, mixerEngine, queueOrderEngine];
 
 const log = console.log;
 for (const { title, config } of scenarios) {

@@ -1,4 +1,8 @@
 import { findBestCombination } from "../utils/gameSelection";
+import type { MixerWeights } from "../utils/mixer/costs";
+import { MixTracker } from "../utils/mixer/mixTracker";
+import { clearPlannedFormats, planFormat } from "../utils/mixer/plannedFormats";
+import { selectGame } from "../utils/mixer/selectGame";
 import { sessionTracker } from "../utils/sessionTracking";
 import { SelectionEngine } from "./types";
 
@@ -17,6 +21,7 @@ export const currentEngine: SelectionEngine = {
   startSession() {
     localStorage.removeItem(HISTORY_KEY);
     sessionTracker.resetSession();
+    clearPlannedFormats();
   },
 
   async select(queue, { config }) {
@@ -38,9 +43,61 @@ export const currentEngine: SelectionEngine = {
  */
 export const queueOrderEngine: SelectionEngine = {
   name: "Queue order only",
-  startSession() {},
+  startSession() {
+    clearPlannedFormats();
+  },
   async select(queue) {
     return queue.slice(0, 4);
   },
   recordGame() {},
 };
+
+/**
+ * The newer engine (src/utils/mixer). Its memory of the night lives in a
+ * tracker made fresh for each simulated night and kept only in memory.
+ * `weights` lets different tunings be compared.
+ */
+export function createMixerEngine(
+  name = "Mixer engine",
+  weights: Partial<MixerWeights> = {},
+  /** Minutes within which players who came off court count as having waited equally. */
+  waveMinutes?: number
+): SelectionEngine {
+  let tracker = new MixTracker({ storage: null });
+
+  return {
+    name,
+
+    startSession() {
+      tracker = new MixTracker({ storage: null });
+      clearPlannedFormats();
+    },
+
+    async select(queue, { config, waitingSince }) {
+      const active = queue.filter(p => !p.isResting);
+      const result = selectGame({
+        queue: active,
+        poolSize: config.poolSize,
+        tracker,
+        preferencesEnabled: true,
+        weights,
+        queuedAt: waveMinutes === undefined ? undefined : waitingSince,
+        waveWindow: waveMinutes,
+      });
+      if (!result) return [];
+
+      tracker.commitSelection(
+        result.players.map(p => p.id),
+        result.reasons.skipped.map(s => s.id)
+      );
+      if (result.gameType) planFormat(result.players, result.gameType);
+      return result.players;
+    },
+
+    recordGame(players, { gameType }) {
+      tracker.recordGame(players, gameType);
+    },
+  };
+}
+
+export const mixerEngine = createMixerEngine();

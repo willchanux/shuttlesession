@@ -100,6 +100,7 @@ export async function simulateSession(
       games: [],
       waits: Object.fromEntries(roster.map(p => [p.id, [] as number[]])),
       skipEpisodes: [],
+      skipDetails: [],
       selections: 0,
       failedSelections: 0,
     };
@@ -118,7 +119,10 @@ export async function simulateSession(
         const id = pool[i].id;
         if (chosenIds.has(id)) {
           const run = skipRuns.get(id) ?? 0;
-          if (run > 0) log.skipEpisodes.push(run);
+          if (run > 0) {
+            log.skipEpisodes.push(run);
+            log.skipDetails!.push({ id, length: run });
+          }
           skipRuns.set(id, 0);
         } else {
           skipRuns.set(id, (skipRuns.get(id) ?? 0) + 1);
@@ -130,7 +134,11 @@ export async function simulateSession(
       world.setMinute(minute);
       log.selections++;
 
-      let chosen = await engine.select(queue.slice(), { minute, config });
+      let chosen = await engine.select(queue.slice(), {
+        minute,
+        config,
+        waitingSince: id => queueSince.get(id) ?? 0,
+      });
       let forced = false;
       if (chosen.length !== 4) {
         // The host would have to sort this out by hand: take the first four
@@ -207,8 +215,11 @@ export async function simulateSession(
     }
 
     // Anyone still being passed over when the night ends counts as a run too
-    for (const run of skipRuns.values()) {
-      if (run > 0) log.skipEpisodes.push(run);
+    for (const [id, run] of skipRuns) {
+      if (run > 0) {
+        log.skipEpisodes.push(run);
+        log.skipDetails!.push({ id, length: run });
+      }
     }
     return log;
   } finally {

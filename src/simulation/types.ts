@@ -1,9 +1,7 @@
 import { Player } from "../types/player";
+import type { Family, GameType } from "../utils/mixer/types";
 
-export type GameType = "Mixed" | "Ladies" | "Open";
-
-/** Mixed is one family; Ladies and Open are both "level" games. */
-export type Family = "mixed" | "level";
+export type { Family, GameType };
 
 export interface SimConfig {
   /** Total players at the session. */
@@ -50,6 +48,8 @@ export interface SessionLog {
    * (someone behind them was picked), how long that run was.
    */
   skipEpisodes: number[];
+  /** The same runs, with who they happened to (for finding out why). */
+  skipDetails?: { id: number; length: number }[];
   selections: number;
   failedSelections: number;
 }
@@ -57,6 +57,11 @@ export interface SessionLog {
 export interface EngineContext {
   minute: number;
   config: SimConfig;
+}
+
+export interface SelectContext extends EngineContext {
+  /** The minute this player joined the queue (this time round). */
+  waitingSince(id: number): number;
 }
 
 /**
@@ -68,7 +73,7 @@ export interface SelectionEngine {
   name: string;
   /** Called once before the session starts, to reset any state the engine keeps. */
   startSession(players: Player[], config: SimConfig): void;
-  select(queue: Player[], ctx: EngineContext): Promise<Player[]>;
+  select(queue: Player[], ctx: SelectContext): Promise<Player[]>;
   /** Called when the chosen game goes onto a court. */
   recordGame(players: Player[], ctx: EngineContext & { gameType: GameType | null }): void;
 }
