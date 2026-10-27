@@ -1,4 +1,5 @@
 
+import { APP_VERSION, BUILD_DATE } from "@/utils/appInfo";
 import { useState, useEffect } from "react";
 import { SessionControl } from "@/components/settings/SessionControl";
 import { GeneralSettings } from "@/components/settings/GeneralSettings";
@@ -54,12 +55,12 @@ export default function Settings() {
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex justify-between items-center">
             <span>Version:</span>
-            <span className="font-mono">{(window as any).__APP_VERSION__ || '1.0.0'}</span>
+            <span className="font-mono">{APP_VERSION}</span>
           </div>
           <div className="flex justify-between items-center">
             <span>Last Updated:</span>
             <span className="font-mono">
-              {new Date((window as any).__BUILD_DATE__).toLocaleDateString()}
+              {BUILD_DATE ? BUILD_DATE.toLocaleDateString() : "-"}
             </span>
           </div>
         </div>
