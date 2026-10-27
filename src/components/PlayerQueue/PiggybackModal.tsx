@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Player } from "@/types/player";
 import { Check } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { releaseStuckPointerEvents } from "@/utils/releaseStuckPointerEvents";
 
 interface PiggybackModalProps {
   open: boolean;
@@ -25,6 +26,13 @@ export function PiggybackModal({ open, onClose, candidates, onConfirm }: Piggyba
   const isMobile = useIsMobile();
 
   React.useEffect(() => { setSelectedId(null); }, [open]);
+
+  // Safety net: once closed, make sure the page is clickable again
+  React.useEffect(() => {
+    if (open) return;
+    const timer = setTimeout(() => releaseStuckPointerEvents(), 400);
+    return () => clearTimeout(timer);
+  }, [open]);
 
   const candidatesList = (
     <div className="space-y-2 max-h-56 overflow-y-auto">

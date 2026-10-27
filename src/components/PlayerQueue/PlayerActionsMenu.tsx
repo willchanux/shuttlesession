@@ -38,7 +38,9 @@ export function PlayerActionsMenu({
   const isMaster = pair?.master === player.id;
 
   return (
-    <DropdownMenu>
+    // Not modal: this menu opens dialogs (Piggyback), and a modal menu closing as a
+    // dialog opens can leave the whole page unclickable.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
