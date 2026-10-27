@@ -90,7 +90,7 @@ export const recordGame = async (players: Player[], winnerIds?: number[], gameTy
 /**
  * A game that was recorded when it went on a court has been voided: take it back
  * out of the history and the session record, so these players are not treated as
- * having played together. (Players' lifetime totals are not changed.)
+ * having played together, and out of their lifetime totals.
  */
 export const voidGame = async (players: { id: number }[]): Promise<void> => {
   const ids = players.map(p => p.id);

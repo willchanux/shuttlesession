@@ -159,6 +159,47 @@ export class PlayerStatsManager {
     }
   }
 
+  /**
+   * Takes one game back out of the players' lifetime totals (the inverse of
+   * updatePlayerStats), for a game that was recorded and then voided. A player
+   * with no stats yet is skipped. Counts never go below zero.
+   */
+  async reversePlayerStats(playerIds: number[], winnerIds?: number[]): Promise<void> {
+    const db = await this.dbManager.ensureInit();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['playerStats'], 'readwrite');
+      const store = transaction.objectStore('playerStats');
+
+      for (const id of playerIds) {
+        const getRequest = store.get(id);
+        getRequest.onsuccess = () => {
+          const stats: PlayerStats | undefined = getRequest.result;
+          if (!stats) return;
+
+          stats.gamesPlayed = Math.max(0, stats.gamesPlayed - 1);
+
+          for (const other of playerIds) {
+            if (other === id) continue;
+            const left = (stats.partners[other] || 0) - 1;
+            if (left > 0) stats.partners[other] = left;
+            else delete stats.partners[other];
+          }
+
+          if (winnerIds && Array.isArray(winnerIds)) {
+            if (winnerIds.includes(id)) stats.wins = Math.max(0, stats.wins - 1);
+            else stats.losses = Math.max(0, stats.losses - 1);
+          }
+
+          store.put(stats);
+        };
+      }
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
   // Reset all player stats
   async clearAllPlayerStats(): Promise<void> {
     const db = await this.dbManager.ensureInit();

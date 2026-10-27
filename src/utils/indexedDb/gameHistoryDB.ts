@@ -46,8 +46,15 @@ export class GameHistoryDB {
     return this.gameRecordsManager.getGameHistory(limit);
   }
 
+  /**
+   * A recorded game was voided: remove it, and take it back out of the players'
+   * lifetime totals. Returns whether a matching game was found.
+   */
   async removeLatestGame(playerIds: number[]): Promise<boolean> {
-    return this.gameRecordsManager.removeLatestGame(playerIds);
+    const removed = await this.gameRecordsManager.removeLatestGame(playerIds);
+    if (!removed) return false;
+    await this.playerStatsManager.reversePlayerStats(playerIds, removed.winners);
+    return true;
   }
 
   async getGamesWithPlayerIds(playerIds: number[], since = 0): Promise<GameRecord[]> {
