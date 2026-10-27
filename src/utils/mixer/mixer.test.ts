@@ -331,3 +331,56 @@ describe("explaining a suggestion", () => {
     expect(playsNext(77)).toBe(false);
   });
 });
+
+describe("voiding a game", () => {
+  const p = (...ids: number[]) => ids.map(id => ({ id }));
+
+  it("takes back games played, pairings, format and skips", () => {
+    const t = new MixTracker({ storage: null });
+    t.assignGame(p(1, 2, 3, 4), "Mixed", [9]);
+    expect(t.gamesPlayed(1)).toBe(1);
+    expect(t.skipCount(9)).toBe(1);
+
+    expect(t.voidGame(p(4, 3, 2, 1))).toBe(true);
+
+    expect(t.gamesPlayed(1)).toBe(0);
+    expect(t.pairCount(1, 2)).toBe(0);
+    expect(t.minGapSince(1, 2)).toBeNull();
+    expect(t.familyStreak(1, "mixed")).toBe(0);
+    expect(t.skipCount(9)).toBe(0);
+  });
+
+  it("restores a player's earlier skips and keeps later games intact", () => {
+    const t = new MixTracker({ storage: null });
+    t.commitSelection([], [1]); // player 1 passed over once before
+    t.assignGame(p(1, 2, 3, 4), "Mixed", []);
+    t.assignGame(p(1, 5, 6, 7), "Open", []); // a later game with player 1
+    expect(t.skipCount(1)).toBe(0);
+
+    t.voidGame(p(1, 2, 3, 4));
+
+    expect(t.gamesPlayed(1)).toBe(1); // only the later game remains
+    expect(t.pairCount(1, 5)).toBe(1);
+    expect(t.pairCount(1, 2)).toBe(0);
+    expect(t.familyStreak(1, "level")).toBe(1);
+    expect(t.familyStreak(1, "mixed")).toBe(0);
+  });
+
+  it("returns false for a game it never recorded, and takes back only once", () => {
+    const t = new MixTracker({ storage: null });
+    expect(t.voidGame(p(1, 2, 3, 4))).toBe(false);
+    t.assignGame(p(1, 2, 3, 4), "Open", null);
+    expect(t.voidGame(p(1, 2, 3, 4))).toBe(true);
+    expect(t.voidGame(p(1, 2, 3, 4))).toBe(false);
+    expect(t.gamesPlayed(1)).toBe(0);
+  });
+
+  it("counts a replayed game once after a void", () => {
+    const t = new MixTracker({ storage: null });
+    t.assignGame(p(1, 2, 3, 4), "Mixed", []);
+    t.voidGame(p(1, 2, 3, 4));
+    t.assignGame(p(1, 2, 3, 4), "Mixed", null);
+    expect(t.gamesPlayed(1)).toBe(1);
+    expect(t.pairCount(1, 2)).toBe(1);
+  });
+});

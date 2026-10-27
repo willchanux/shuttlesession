@@ -114,6 +114,31 @@ export class SessionTracker {
   }
 
   /**
+   * Take back a game that was recorded and then voided: one fewer game for each
+   * player, and the matching recent combination forgotten.
+   */
+  unrecordGame(players: { id: number }[]) {
+    const playerIds = players.map(p => p.id);
+
+    playerIds.forEach(playerId => {
+      const existing = this.stats.get(playerId);
+      if (!existing) return;
+
+      existing.gamesPlayed = Math.max(0, existing.gamesPlayed - 1);
+
+      const others = playerIds.filter(id => id !== playerId).sort();
+      const index = existing.recentCombinations.findIndex(
+        combo => combo.length === others.length && combo.every((id, i) => id === others[i])
+      );
+      if (index !== -1) existing.recentCombinations.splice(index, 1);
+
+      this.stats.set(playerId, existing);
+    });
+
+    this.saveToStorage();
+  }
+
+  /**
    * Timestamp (ms) when the current session started. Used to limit repeat
    * history to tonight's games rather than every game ever recorded.
    */

@@ -81,6 +81,37 @@ export class GameRecordsManager {
   }
 
   /**
+   * Deletes the most recent game played by exactly these players (used when a
+   * game is voided). Returns whether one was found.
+   */
+  async removeLatestGame(playerIds: number[]): Promise<boolean> {
+    const db = await this.dbManager.ensureInit();
+    const wanted = [...playerIds].sort((a, b) => a - b).join("-");
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['gameHistory'], 'readwrite');
+      const index = transaction.objectStore('gameHistory').index('timestamp');
+      const request = index.openCursor(null, 'prev');
+      let removed = false;
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (!cursor) return;
+        const ids: number[] | undefined = cursor.value.playerIds;
+        if (Array.isArray(ids) && [...ids].sort((a, b) => a - b).join("-") === wanted) {
+          cursor.delete();
+          removed = true;
+          return; // stop here: only the latest
+        }
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve(removed);
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  /**
    * Returns recent games that include every one of `playerIds`, optionally only
    * those recorded at or after `since` (ms timestamp).
    *

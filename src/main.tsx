@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App.tsx';
 import './index.css';
+import { cleanLadiesFromMen } from './utils/cleanMemberPreferences';
+
+// Tidy up saved data before anything reads it
+cleanLadiesFromMen();
 
 // Register service worker with silent auto-update
 const updateSW = registerSW({

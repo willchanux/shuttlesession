@@ -46,6 +46,10 @@ export class GameHistoryDB {
     return this.gameRecordsManager.getGameHistory(limit);
   }
 
+  async removeLatestGame(playerIds: number[]): Promise<boolean> {
+    return this.gameRecordsManager.removeLatestGame(playerIds);
+  }
+
   async getGamesWithPlayerIds(playerIds: number[], since = 0): Promise<GameRecord[]> {
     return this.gameRecordsManager.getGamesWithPlayerIds(playerIds, since);
   }

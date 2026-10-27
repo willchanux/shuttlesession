@@ -78,3 +78,18 @@ describe("SessionTracker loading and reset", () => {
     expect(tracker.getSessionStart()).toBeGreaterThanOrEqual(now);
   });
 });
+
+describe("SessionTracker.unrecordGame", () => {
+  it("takes back a game that was voided", () => {
+    const tracker = new SessionTracker();
+    tracker.resetSession();
+    const players = [1, 2, 3, 4].map(id => ({ id, name: `P${id}`, gender: "male" as const, waitingTime: 0 }));
+    tracker.recordGame(players);
+    expect(tracker.getGamesPlayedCount(1)).toBe(1);
+
+    tracker.unrecordGame(players);
+
+    expect(tracker.getGamesPlayedCount(1)).toBe(0);
+    expect(tracker.getVarietyBonus(players)).toBe(10); // no recent combination left
+  });
+});

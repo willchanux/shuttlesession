@@ -64,11 +64,14 @@ export function reasonsFor(players: { id: number }[]): SelectionReasons | null {
 
 /** A game has been put on a court. */
 export function onGameAssigned(players: Player[], gameType: GameType | null): void {
-  if (current && current.key === keyOf(players)) {
-    mixTracker.commitSelection(current.chosenIds, current.skippedIds);
-  }
+  const asSuggested = current !== null && current.key === keyOf(players);
+  mixTracker.assignGame(players, gameType, asSuggested ? current!.skippedIds : null);
   current = null;
-  mixTracker.recordGame(players, gameType);
+}
+
+/** A game on a court was voided: take it back out of the night's record. */
+export function onGameVoided(players: { id: number }[]): void {
+  mixTracker.voidGame(players);
 }
 
 /** Forget the night, e.g. when the session ends. */

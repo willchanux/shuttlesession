@@ -41,6 +41,21 @@ interface SavedState {
   lastActivity: number;
 }
 
+/** What putting one game on a court changed, so that it can be taken back if the game is voided. */
+interface GameDelta {
+  key: string;
+  ids: number[];
+  family: Family | null;
+  skippedIds: number[];
+  /** Each affected player's skips before the game. */
+  priorSkips: [number, number][];
+  /** For each pair: when they last shared a game before this one, and what this game set it to. */
+  pairLast: { pair: string; prior: [number, number] | undefined; set: [number, number] }[];
+}
+
+const UNDO_LIMIT = 20;
+const gameKey = (ids: number[]) => [...ids].sort((a, b) => a - b).join("-");
+
 /**
  * Remembers, for the current session only, who has played with whom, how many
  * games each player has had, what kinds of game, and who has been passed over.
@@ -54,6 +69,8 @@ export class MixTracker implements MixTrackerReader {
   private families = new Map<number, Family[]>();
   private skips = new Map<number, number>();
   private skipSnapshot: Map<number, number> | null = null;
+  /** Kept in memory only: a game voided after the app was reloaded cannot be taken back. */
+  private deltas: GameDelta[] = [];
   private lastActivity = Date.now();
   private readonly storage: StorageLike | null;
 
@@ -140,6 +157,90 @@ export class MixTracker implements MixTrackerReader {
     this.touchAndSave();
   }
 
+  /**
+   * A game has gone onto a court: count it, and (when it was the engine's own
+   * suggestion) count those passed over to get it. Unlike calling recordGame and
+   * commitSelection separately, this can be taken back with voidGame.
+   * Pass `skippedIds` null for a game the engine did not suggest.
+   */
+  assignGame(players: { id: number }[], gameType: GameType | null, skippedIds: number[] | null): void {
+    const ids = players.map(p => p.id);
+    const skipped = skippedIds ?? [];
+
+    const priorSkips: [number, number][] = [...ids, ...skipped].map(id => [id, this.skipCount(id)]);
+    const priorLast = new Map<string, [number, number] | undefined>();
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const key = pairKey(ids[i], ids[j]);
+        const prior = this.lastShared.get(key);
+        priorLast.set(key, prior ? [prior[0], prior[1]] : undefined);
+      }
+    }
+
+    if (skippedIds) this.commitSelection(ids, skippedIds);
+    this.recordGame(players, gameType);
+
+    this.deltas.push({
+      key: gameKey(ids),
+      ids,
+      family: familyOf(gameType),
+      skippedIds: skipped,
+      priorSkips,
+      pairLast: Array.from(priorLast, ([pair, prior]) => {
+        const set = this.lastShared.get(pair)!;
+        return { pair, prior, set: [set[0], set[1]] as [number, number] };
+      }),
+    });
+    if (this.deltas.length > UNDO_LIMIT) this.deltas.shift();
+  }
+
+  /**
+   * A game put on a court with assignGame was voided: it never happened. Takes
+   * back its games played, pairings, format and skips, leaving anything that has
+   * happened since untouched. Returns false if there is nothing to take back.
+   */
+  voidGame(players: { id: number }[]): boolean {
+    const key = gameKey(players.map(p => p.id));
+    const index = this.deltas.map(d => d.key).lastIndexOf(key);
+    if (index === -1) return false;
+    const [delta] = this.deltas.splice(index, 1);
+
+    for (const id of delta.ids) {
+      this.played.set(id, Math.max(0, this.gamesPlayed(id) - 1));
+
+      if (delta.family) {
+        const history = [...(this.families.get(id) ?? [])];
+        const last = history.lastIndexOf(delta.family);
+        if (last !== -1) history.splice(last, 1);
+        this.families.set(id, history);
+      }
+    }
+
+    for (const { pair, prior, set } of delta.pairLast) {
+      const count = (this.pairCounts.get(pair) ?? 0) - 1;
+      if (count > 0) this.pairCounts.set(pair, count);
+      else this.pairCounts.delete(pair);
+
+      // Only rewind "last shared" if no later game involving the pair has moved it on
+      const current = this.lastShared.get(pair);
+      if (current && current[0] === set[0] && current[1] === set[1]) {
+        if (prior) this.lastShared.set(pair, prior);
+        else this.lastShared.delete(pair);
+      }
+    }
+
+    const before = new Map(delta.priorSkips);
+    for (const id of delta.ids) {
+      if (this.skipCount(id) === 0) this.skips.set(id, before.get(id) ?? 0);
+    }
+    for (const id of delta.skippedIds) {
+      this.skips.set(id, Math.max(0, this.skipCount(id) - 1));
+    }
+
+    this.touchAndSave();
+    return true;
+  }
+
   /** The last chosen group was cleared before it was played: take back its skips. */
   undoSelection(): void {
     if (!this.skipSnapshot) return;
@@ -156,6 +257,7 @@ export class MixTracker implements MixTrackerReader {
     this.families.clear();
     this.skips.clear();
     this.skipSnapshot = null;
+    this.deltas = [];
     this.lastActivity = Date.now();
     try {
       this.storage?.removeItem(MIX_TRACKER_KEY);

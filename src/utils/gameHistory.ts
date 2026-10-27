@@ -88,6 +88,37 @@ export const recordGame = async (players: Player[], winnerIds?: number[], gameTy
 };
 
 /**
+ * A game that was recorded when it went on a court has been voided: take it back
+ * out of the history and the session record, so these players are not treated as
+ * having played together. (Players' lifetime totals are not changed.)
+ */
+export const voidGame = async (players: { id: number }[]): Promise<void> => {
+  const ids = players.map(p => p.id);
+
+  try {
+    await gameHistoryDB.removeLatestGame(ids);
+  } catch (e) {
+    console.error("Error removing voided game from IndexedDB:", e);
+    try {
+      const wanted = [...ids].sort((a, b) => a - b).join("-");
+      const history: any[] = JSON.parse(localStorage.getItem("gameHistory") ?? "[]");
+      const index = history.findIndex(
+        g => Array.isArray(g.playerIds) && [...g.playerIds].sort((a: number, b: number) => a - b).join("-") === wanted
+      );
+      if (index !== -1) {
+        history.splice(index, 1);
+        localStorage.setItem("gameHistory", JSON.stringify(history));
+      }
+    } catch (fallbackError) {
+      console.error("Error removing voided game from localStorage fallback:", fallbackError);
+    }
+  }
+
+  const { sessionTracker } = await import("./sessionTracking");
+  sessionTracker.unrecordGame(players);
+};
+
+/**
  * Counts games that included every one of the given player IDs (a pair, or a
  * full group), optionally only games at or after `since` (ms timestamp).
  */

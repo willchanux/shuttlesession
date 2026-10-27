@@ -5,8 +5,9 @@ import { useGameAssignment } from "@/hooks/useGameAssignment";
 import { usePlayerQueue } from "@/hooks/usePlayerQueue";
 import { getSessionScores } from "@/utils/storageUtils";
 import { recordGame } from "@/utils/gameUtils";
+import { voidGame as removeVoidedGame } from "@/utils/gameHistory";
 import { determineBestGameTypeWithPiggyback } from "@/utils/gameValidation";
-import { isMixerEngineEnabled, onGameAssigned } from "@/utils/mixer/suggestion";
+import { isMixerEngineEnabled, onGameAssigned, onGameVoided } from "@/utils/mixer/suggestion";
 import { applyPlayerUpdate, PlayerUpdate } from "@/utils/playerUpdate";
 
 // ADD PROPS: piggybackPair state and handlers
@@ -260,6 +261,12 @@ export function useDashboardLogic({
       console.error("useDashboardLogic: No players returned from voided court");
       return;
     }
+
+    // The game never happened: take it back out of the night's record
+    if (isMixerEngineEnabled()) onGameVoided(voidedPlayers);
+    removeVoidedGame(voidedPlayers).catch(error => {
+      console.error("useDashboardLogic: Error removing voided game from history:", error);
+    });
 
     // Convert court players back to full Player objects
     const playerObjects: Player[] = voidedPlayers.map((player) => ({

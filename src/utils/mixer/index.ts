@@ -13,6 +13,7 @@ export {
   rememberSuggestion,
   reasonsFor,
   onGameAssigned,
+  onGameVoided,
   endMixerSession,
   explainSuggestion,
   playsNext,
