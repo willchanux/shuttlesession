@@ -7,6 +7,7 @@ import { getSessionScores } from "@/utils/storageUtils";
 import { recordGame } from "@/utils/gameUtils";
 import { determineBestGameTypeWithPiggyback } from "@/utils/gameValidation";
 import { isMixerEngineEnabled, onGameAssigned } from "@/utils/mixer/suggestion";
+import { applyPlayerUpdate, PlayerUpdate } from "@/utils/playerUpdate";
 
 // ADD PROPS: piggybackPair state and handlers
 type PiggybackPair = { master: number; partner: number };
@@ -32,6 +33,7 @@ export function useDashboardLogic({
     addPlayersToQueue,
     removePlayersFromQueue,
     autoSelectPlayers,
+    updatePlayerInfo: updateQueuePlayerInfo,
     syncQueue
   } = usePlayerQueue({ 
     piggybackPairs,
@@ -52,7 +54,8 @@ export function useDashboardLogic({
     assignPlayersToCourtById,
     endGameOnCourt,
     canVoidCourt,
-    voidGameOnCourt
+    voidGameOnCourt,
+    updateCourtPlayerInfo
   } = useCourtManagement();
 
   // State for end game dialog
@@ -286,7 +289,16 @@ export function useDashboardLogic({
     console.log("useDashboardLogic: Voided players set as next game:", playerObjects.map(p => ({ id: p.id, name: p.name })));
   }, [canVoidCourt, voidGameOnCourt, isNextGameReady, nextGamePlayers, addPlayersToQueue, clearGamePlayers, setNextGame]);
 
+  // A member's details were edited: change that player wherever they are right
+  // now (queue, next game, courts), in the live state the app actually uses
+  const updateActivePlayerInfo = useCallback((updated: PlayerUpdate) => {
+    updateQueuePlayerInfo(updated);
+    setNextGame(applyPlayerUpdate(nextGamePlayers, updated));
+    updateCourtPlayerInfo(updated);
+  }, [updateQueuePlayerInfo, setNextGame, nextGamePlayers, updateCourtPlayerInfo]);
+
   return {
+    updateActivePlayerInfo,
     queue,
     nextGamePlayers,
     sortedCourts,

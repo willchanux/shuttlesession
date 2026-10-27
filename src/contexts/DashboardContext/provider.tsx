@@ -53,6 +53,7 @@ export function DashboardProviderLogic({ children }: { children: React.ReactNode
     isNextGameReady,
     voidCourtAssignment,
     canVoidCourt,
+    updateActivePlayerInfo,
     syncQueue
   } = useDashboardLogic({
     piggybackPairs,
@@ -76,68 +77,6 @@ export function DashboardProviderLogic({ children }: { children: React.ReactNode
   useEffect(() => {
     setCourts(sortedCourts);
   }, [sortedCourts]);
-
-  // Updated updateActivePlayerInfo function to handle ID-based updates
-  const updateActivePlayerInfo = (updated: { 
-    id?: number; 
-    name: string; 
-    gender?: "male" | "female"; 
-    isGuest?: boolean; 
-    playPreferences?: PlayPreference[] 
-  }) => {
-    console.log("DashboardContext: Updating active player info", updated);
-    
-    // Update player queue - use ID if available, fallback to name
-    const updatedQueue = queueState.map(player => {
-      const matches = updated.id ? player.id === updated.id : player.name === updated.name;
-      return matches
-        ? {
-            ...player,
-            name: updated.name,
-            ...(updated.gender && { gender: updated.gender }),
-            ...(typeof updated.isGuest === "boolean" && { isGuest: updated.isGuest }),
-            ...(updated.playPreferences && { playPreferences: updated.playPreferences })
-          }
-        : player
-    });
-    
-    setQueue(updatedQueue);
-    
-    // Update next game players - use ID if available, fallback to name
-    const updatedNextGame = nextGamePlayersState.map(player => {
-      const matches = updated.id ? player.id === updated.id : player.name === updated.name;
-      return matches
-        ? {
-            ...player,
-            name: updated.name,
-            ...(updated.gender && { gender: updated.gender }),
-            ...(typeof updated.isGuest === "boolean" && { isGuest: updated.isGuest }),
-            ...(updated.playPreferences && { playPreferences: updated.playPreferences })
-          }
-        : player
-    });
-    
-    setNextGamePlayers(updatedNextGame);
-    
-    // Update courts - use ID if available, fallback to name
-    const updatedCourts = courtsState.map(court => ({
-      ...court,
-      players: court.players.map(player => {
-        const matches = updated.id ? player.id === updated.id : player.name === updated.name;
-        return matches
-          ? {
-              ...player,
-              name: updated.name,
-              ...(updated.gender && { gender: updated.gender }),
-              ...(typeof updated.isGuest === "boolean" && { isGuest: updated.isGuest }),
-              ...(updated.playPreferences && { playPreferences: updated.playPreferences })
-            }
-          : player
-      })
-    }));
-    
-    setCourts(updatedCourts);
-  };
 
   // Toggle player rest status - players stay in their queue position
   const togglePlayerRest = (playerId: number) => {
