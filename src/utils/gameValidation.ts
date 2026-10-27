@@ -1,5 +1,18 @@
 
 import { Player } from "../types/player";
+import { getPlannedFormat } from "./mixer/plannedFormats";
+
+/**
+ * The format the selection engine deliberately chose for this group, provided
+ * it is still possible. Only groups picked by the newer engine have one.
+ */
+function plannedFormat(
+  players: Player[],
+  possible: { Mixed: boolean; Ladies: boolean; Open: boolean }
+): "Mixed" | "Ladies" | "Open" | null {
+  const planned = getPlannedFormat(players);
+  return planned && possible[planned] ? planned : null;
+}
 
 /**
  * Checks if a set of players can form a valid game based on preferences
@@ -57,7 +70,15 @@ export const determineBestGameType = (players: Player[]): "Mixed" | "Ladies" | "
   const allAcceptMixed = players.every(p => playerAcceptsGameType(p, "Mixed"));
   const allAcceptLadies = players.every(p => playerAcceptsGameType(p, "Ladies"));
   const allAcceptOpen = players.every(p => playerAcceptsGameType(p, "Open"));
-  
+
+  // A format chosen by the selection engine wins, if it is still possible
+  const planned = plannedFormat(players, {
+    Mixed: isMixedPossible && allAcceptMixed,
+    Ladies: isLadiesPossible && allAcceptLadies,
+    Open: allAcceptOpen,
+  });
+  if (planned) return planned;
+
   // Priority order: Try to match top player's preference first while ensuring all players accept it
   if (topPlayerPrefs.length > 0) {
     // Check each preference of the top player in order
@@ -152,7 +173,15 @@ export const determineBestGameTypeWithPiggyback = (
   const allAcceptMixed = players.every(p => playerAcceptsGameType(p, "Mixed"));
   const allAcceptLadies = players.every(p => playerAcceptsGameType(p, "Ladies"));
   const allAcceptOpen = players.every(p => playerAcceptsGameType(p, "Open"));
-  
+
+  // A format chosen by the selection engine wins, if it is still possible
+  const planned = plannedFormat(players, {
+    Mixed: isMixedPossible && allAcceptMixed,
+    Ladies: isLadiesPossible && allAcceptLadies,
+    Open: allAcceptOpen,
+  });
+  if (planned) return planned;
+
   // Priority: Piggyback preference first (if valid), then top player preference, then defaults
   if (piggybackPreference) {
     if (piggybackPreference === "Mixed" && isMixedPossible && allAcceptMixed) return "Mixed";
