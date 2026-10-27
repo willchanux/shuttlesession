@@ -5,6 +5,7 @@ import { useGameAssignment } from "@/hooks/useGameAssignment";
 import { usePlayerQueue } from "@/hooks/usePlayerQueue";
 import { getSessionScores } from "@/utils/storageUtils";
 import { recordGame } from "@/utils/gameUtils";
+import { determineBestGameTypeWithPiggyback } from "@/utils/gameValidation";
 
 // ADD PROPS: piggybackPair state and handlers
 type PiggybackPair = { master: number; partner: number };
@@ -102,8 +103,15 @@ export function useDashboardLogic({
     const success = assignPlayersToCourtById(courtId, nextGamePlayers);
     if (success) {
       try {
+        // Work out what type of game this is (Mixed / Ladies / Open) so it is
+        // kept in the history. Only meaningful when player preferences are on.
+        const preferencesEnabled = localStorage.getItem("enablePlayerPreferences") === "true";
+        const gameType = preferencesEnabled
+          ? determineBestGameTypeWithPiggyback(nextGamePlayers, piggybackPairs) ?? undefined
+          : undefined;
+
         // Record the game in IndexedDB (non-blocking)
-        recordGame(nextGamePlayers).catch(error => {
+        recordGame(nextGamePlayers, undefined, gameType).catch(error => {
           console.error("useDashboardLogic: Error recording game:", error);
         });
         
@@ -117,7 +125,7 @@ export function useDashboardLogic({
     } else {
       console.error("useDashboardLogic: Failed to assign players to court", courtId);
     }
-  }, [isNextGameReady, nextGamePlayers, assignPlayersToCourtById, clearGamePlayers]);
+  }, [isNextGameReady, nextGamePlayers, assignPlayersToCourtById, clearGamePlayers, piggybackPairs]);
 
   // Optimized end game click handler
   const handleEndGameClick = useCallback((courtId: number) => {
