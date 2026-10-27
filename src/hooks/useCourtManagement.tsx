@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { applyPlayerUpdate, PlayerUpdate } from "@/utils/playerUpdate";
 import { Court } from "@/types/DashboardTypes";
 import { toCourtPlayer } from "@/utils/courtPlayers";
 
@@ -161,29 +162,11 @@ export function useCourtManagement() {
   }, [courts]);
 
   // Optimized player info update
-  const updateCourtPlayerInfo = useCallback((updated: { 
-    id?: number; 
-    name: string; 
-    gender?: "male" | "female"; 
-    isGuest?: boolean; 
-    playPreferences?: any[] 
-  }) => {
+  const updateCourtPlayerInfo = useCallback((updated: PlayerUpdate) => {
     setCourts((prevCourts) =>
       prevCourts.map((court) => ({
         ...court,
-        players: court.players.map((p: any) => {
-          const matches = updated.id ? p.id === updated.id : p.name === updated.name;
-          
-          if (!matches) return p;
-          
-          return {
-            ...p,
-            name: updated.name,
-            ...(updated.gender && { gender: updated.gender }),
-            ...(typeof updated.isGuest === "boolean" && { isGuest: updated.isGuest }),
-            ...(updated.playPreferences && { playPreferences: updated.playPreferences })
-          };
-        })
+        players: applyPlayerUpdate(court.players, updated),
       }))
     );
   }, []);

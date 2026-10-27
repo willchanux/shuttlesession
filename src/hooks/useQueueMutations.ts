@@ -3,6 +3,7 @@ import { Player } from "../types/player";
 import { PlayPreference } from "../types/member";
 import { getSessionScores } from "../utils/storageUtils";
 import { generatePlayerId } from "../utils/playerIdGenerator";
+import { applyPlayerUpdate, PlayerUpdate } from "../utils/playerUpdate";
 
 // Cache for member lookups to avoid repeated localStorage reads
 let memberCache: any[] = [];
@@ -36,8 +37,13 @@ export function useQueueMutations() {
 
     // Try to get existing member ID from cache
     let playerId = generatePlayerId();
-    const members = getMembersFromCache();
-    const existingMember = members.find((m: any) => m.name === player.name);
+    // A member created a moment ago may not be in the cache yet. Look again at the
+    // saved list, or the player is given a different id from their member record.
+    let existingMember = getMembersFromCache().find((m: any) => m.name === player.name);
+    if (!existingMember) {
+      memberCacheTimestamp = 0;
+      existingMember = getMembersFromCache().find((m: any) => m.name === player.name);
+    }
     if (existingMember && existingMember.id) {
       playerId = existingMember.id;
     }
@@ -127,27 +133,9 @@ export function useQueueMutations() {
     }
   }
 
-  // Update player info by ID (optimized with reduced object spreading)
-  function updatePlayerInfo(prevQueue: Player[], updated: { 
-    id?: number; 
-    name: string; 
-    gender?: "male" | "female"; 
-    isGuest?: boolean; 
-    playPreferences?: PlayPreference[] 
-  }) {
-    return prevQueue.map(player => {
-      const matches = updated.id ? player.id === updated.id : player.name === updated.name;
-      
-      if (!matches) return player;
-      
-      // Optimized update with minimal object creation
-      const updatedPlayer = { ...player, name: updated.name };
-      if (updated.gender !== undefined) updatedPlayer.gender = updated.gender;
-      if (updated.isGuest !== undefined) updatedPlayer.isGuest = updated.isGuest;
-      if (updated.playPreferences !== undefined) updatedPlayer.playPreferences = updated.playPreferences;
-      
-      return updatedPlayer;
-    });
+  // Update player info (by id, else by previous name)
+  function updatePlayerInfo(prevQueue: Player[], updated: PlayerUpdate): Player[] {
+    return applyPlayerUpdate(prevQueue, updated);
   }
 
   return {

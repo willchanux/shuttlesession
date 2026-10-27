@@ -1,3 +1,4 @@
+import type { PlayerUpdate } from "@/utils/playerUpdate";
 
 import { Player } from "@/types/player";
 import { PlayPreference } from "@/types/member";
@@ -8,13 +9,7 @@ export interface DashboardContextType {
   addPlayerToQueue: (player: Omit<Player, "id" | "waitingTime">) => void;
   removePlayerFromQueue: (playerId: number) => void;
   togglePlayerRest: (playerId: number) => void;
-  updateActivePlayerInfo: (updated: { 
-    id?: number; 
-    name: string; 
-    gender?: "male" | "female"; 
-    isGuest?: boolean; 
-    playPreferences?: PlayPreference[] 
-  }) => void;
+  updateActivePlayerInfo: (updated: PlayerUpdate) => void;
 
   // Next game
   nextGamePlayers: Player[];

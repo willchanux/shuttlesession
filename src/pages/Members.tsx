@@ -158,6 +158,7 @@ function MembersPageContent() {
       // --- SYNC if player is active - use ID-based update ---
       updateActivePlayerInfo({
         id: editingMember.id,
+        previousName: editingMember.name,
         name: memberData.name,
         gender: memberData.gender,
         isGuest: memberData.isGuest,

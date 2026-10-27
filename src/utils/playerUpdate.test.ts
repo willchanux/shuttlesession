@@ -27,3 +27,16 @@ describe("applyPlayerUpdate", () => {
     expect(applyPlayerUpdate(list, { id: 1, name: "Sam", playPreferences: [] })[0].playPreferences).toEqual([]);
   });
 });
+
+describe("applyPlayerUpdate with a different id", () => {
+  it("finds a player by their previous name when the member id does not match", () => {
+    const players = [{ id: 555, name: "Alex", gender: "male" as const }];
+    const next = applyPlayerUpdate(players, { id: 1, previousName: "Alex", name: "Alex", gender: "female" });
+    expect(next[0].gender).toBe("female");
+  });
+
+  it("does not touch someone else who merely shares an id-less name", () => {
+    const players = [{ id: 7, name: "Kim", gender: "male" as const }];
+    expect(applyPlayerUpdate(players, { id: 1, previousName: "Alex", name: "Alex", gender: "female" })[0].gender).toBe("male");
+  });
+});
