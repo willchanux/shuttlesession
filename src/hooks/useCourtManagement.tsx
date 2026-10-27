@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Court } from "@/types/DashboardTypes";
+import { toCourtPlayer } from "@/utils/courtPlayers";
 
 // Initial courts data for up to 8 courts (memoized)
 const predefinedCourts = [
@@ -103,13 +104,9 @@ export function useCourtManagement() {
       prevCourts.map(court => {
         if (court.id !== courtId) return court;
         
-        // Preserve player IDs and essential data
-        const assignedPlayers = players.map(p => ({
-          id: p.id, // CRITICAL: Preserve original ID
-          name: p.name,
-          gender: p.gender,
-          isGuest: p.isGuest || false
-        }));
+        // Preserve the player's ID (CRITICAL) and everything else about them,
+        // including play preferences, so they are intact when the game ends
+        const assignedPlayers = players.map(p => toCourtPlayer(p));
 
         console.log("useCourtManagement: Assigned players:", assignedPlayers.map(p => ({ id: p.id, name: p.name })));
 
@@ -143,12 +140,7 @@ export function useCourtManagement() {
     }
     
     // Store players before clearing court
-    const releasedPlayers = courtToEnd.players.map(p => ({
-      id: p.id, // CRITICAL: Preserve ID
-      name: p.name,
-      gender: p.gender,
-      isGuest: p.isGuest || false
-    }));
+    const releasedPlayers = courtToEnd.players.map(p => toCourtPlayer(p));
     
     // Update court status
     setCourts(prevCourts =>
@@ -217,12 +209,7 @@ export function useCourtManagement() {
     console.log("useCourtManagement: Voiding game on court", courtId);
     
     // Store players before clearing court
-    const voidedPlayers = courtToVoid.players.map(p => ({
-      id: p.id,
-      name: p.name,
-      gender: p.gender,
-      isGuest: p.isGuest || false
-    }));
+    const voidedPlayers = courtToVoid.players.map(p => toCourtPlayer(p));
     
     // Reset court to available
     setCourts(prevCourts =>

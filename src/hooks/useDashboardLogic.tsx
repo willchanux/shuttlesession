@@ -173,6 +173,7 @@ export function useDashboardLogic({
       const playerSessionScore = sessionScores[player.name] || { wins: 0, losses: 0 };
       
       return {
+        ...player,
         id: playerId,
         name: player.name,
         gender: player.gender as "male" | "female",
@@ -181,10 +182,14 @@ export function useDashboardLogic({
         wins: matchingMember?.wins || 0,
         losses: matchingMember?.losses || 0,
         sessionWins: playerSessionScore.wins,
-        sessionLosses: playerSessionScore.losses
+        sessionLosses: playerSessionScore.losses,
+        // Keep what game types this player will accept (falling back to their
+        // member record) so they are still matched correctly after this game
+        playPreferences: player.playPreferences ?? matchingMember?.playPreferences ?? [],
+        rating: player.rating ?? matchingMember?.rating
       };
     });
-    
+
     // Add players back to queue
     addPlayersToQueue(playerObjects, false, winnerNames);
     setEndGameDialogOpen(false);
@@ -241,6 +246,7 @@ export function useDashboardLogic({
 
     // Convert court players back to full Player objects
     const playerObjects: Player[] = voidedPlayers.map((player) => ({
+      ...player,
       id: player.id,
       name: player.name,
       gender: player.gender as "male" | "female",
