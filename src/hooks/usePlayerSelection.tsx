@@ -3,6 +3,10 @@ import { Player } from "../types/player";
 import { canFormValidGame, determineBestGameType, getPlayerPoolSize } from "../utils/gameUtils";
 import { findBestCombination } from "../utils/gameSelection";
 import { PiggybackPair } from "./usePiggybackPairs";
+import { mixTracker } from "../utils/mixer/mixTracker";
+import { planFormat } from "../utils/mixer/plannedFormats";
+import { selectGame } from "../utils/mixer/selectGame";
+import { isMixerEngineEnabled, rememberSuggestion } from "../utils/mixer/suggestion";
 
 type UsePlayerSelectionOptions = {
   piggybackPairs?: PiggybackPair[];
@@ -23,6 +27,24 @@ export function usePlayerSelection(queue: Player[], options?: UsePlayerSelection
     const poolPlayers = getFairPiggybackPool(activeQueue, piggybackPairs, poolSize);
     
     console.log("Auto-select: Fair pool size:", poolPlayers.length);
+
+    // The newer mixer engine, when switched on (see utils/mixer)
+    if (isMixerEngineEnabled()) {
+      const result = selectGame({
+        queue: poolPlayers,
+        poolSize: poolPlayers.length,
+        tracker: mixTracker,
+        preferencesEnabled: localStorage.getItem("enablePlayerPreferences") === "true",
+        piggybackPairs,
+      });
+      if (!result) {
+        console.log("Auto-select (mixer): no valid game in the pool");
+        return [];
+      }
+      if (result.gameType) planFormat(result.players, result.gameType);
+      rememberSuggestion(result);
+      return result.players;
+    }
 
     // Use the enhanced selection logic with piggyback awareness
     const selectedPlayers = await findBestCombination(poolPlayers, piggybackPairs);

@@ -7,3 +7,11 @@ export type { MixerWeights, CostTerm, Candidate } from "./costs";
 export { clearPlannedFormats, planFormat, getPlannedFormat } from "./plannedFormats";
 export { canPlayBothFamilies, familyOf, feasibleFormats } from "./formats";
 export type { Family, GameType, Pair } from "./types";
+export {
+  SELECTION_ENGINE_KEY,
+  isMixerEngineEnabled,
+  rememberSuggestion,
+  reasonsFor,
+  onGameAssigned,
+  endMixerSession,
+} from "./suggestion";

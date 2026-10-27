@@ -6,6 +6,7 @@ import { usePlayerQueue } from "@/hooks/usePlayerQueue";
 import { getSessionScores } from "@/utils/storageUtils";
 import { recordGame } from "@/utils/gameUtils";
 import { determineBestGameTypeWithPiggyback } from "@/utils/gameValidation";
+import { isMixerEngineEnabled, onGameAssigned } from "@/utils/mixer/suggestion";
 
 // ADD PROPS: piggybackPair state and handlers
 type PiggybackPair = { master: number; partner: number };
@@ -109,6 +110,11 @@ export function useDashboardLogic({
         const gameType = preferencesEnabled
           ? determineBestGameTypeWithPiggyback(nextGamePlayers, piggybackPairs) ?? undefined
           : undefined;
+
+        // Let the mixer engine (if on) learn from this game, however it was picked
+        if (isMixerEngineEnabled()) {
+          onGameAssigned(nextGamePlayers, gameType ?? null);
+        }
 
         // Record the game in IndexedDB (non-blocking)
         recordGame(nextGamePlayers, undefined, gameType).catch(error => {

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Player } from "../../types/player";
 import { PlayPreference } from "../../types/member";
+import { endMixerSession, onGameAssigned, reasonsFor, rememberSuggestion } from "./suggestion";
+import { mixTracker } from "./mixTracker";
 import { MixTracker, StorageLike, MIX_TRACKER_KEY } from "./mixTracker";
 import { selectGame } from "./selectGame";
 import { feasibleFormats, familyOf, canPlayBothFamilies } from "./formats";
@@ -243,5 +245,45 @@ describe("planned formats", () => {
     expect(determineBestGameType(four)).toBe("Open");
     clearPlannedFormats();
     expect(determineBestGameType(four)).toBe("Mixed");
+  });
+});
+
+describe("suggestions and the tracker", () => {
+  const four = () => [man(), man(), lady(), lady()];
+  const result = (players: Player[], skipped: number[]) => ({
+    players,
+    gameType: "Mixed" as const,
+    reasons: {
+      longestWaiterId: players[0].id, forcedIds: [], skipped: skipped.map(id => ({ id, timesSkipped: 1 })),
+      freshPairs: 6, repeatedPairs: [], costs: {},
+    },
+  });
+
+  beforeEach(() => endMixerSession());
+
+  it("counts skips only when the game is played as suggested", () => {
+    const players = four();
+    rememberSuggestion(result(players, [99]));
+    expect(reasonsFor(players)).not.toBeNull();
+    onGameAssigned(players, "Mixed");
+    expect(mixTracker.skipCount(99)).toBe(1);
+    expect(mixTracker.pairCount(players[0].id, players[1].id)).toBe(1);
+  });
+
+  it("counts nobody as skipped when the host picks different players", () => {
+    const suggested = four();
+    rememberSuggestion(result(suggested, [98]));
+    const picked = four();
+    expect(reasonsFor(picked)).toBeNull();
+    onGameAssigned(picked, "Open");
+    expect(mixTracker.skipCount(98)).toBe(0);
+    expect(mixTracker.gamesPlayed(picked[0].id)).toBe(1); // but the game still counts
+  });
+
+  it("forgets everything when the session ends", () => {
+    const players = four();
+    onGameAssigned(players, "Mixed");
+    endMixerSession();
+    expect(mixTracker.pairCount(players[0].id, players[1].id)).toBe(0);
   });
 });

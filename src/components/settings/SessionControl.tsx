@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PlayerOfSessionDialog } from "@/components/PlayerOfSessionDialog";
 import { clearSessionScores } from "@/utils/storageUtils";
 import { sessionTracker } from "@/utils/sessionTracking";
+import { endMixerSession } from "@/utils/mixer/suggestion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,7 @@ export function SessionControl() {
 
     // Forget who has played with whom, so the next session starts with a clean slate
     sessionTracker.resetSession();
+    endMixerSession();
 
     // Navigate back to splash screen
     navigate("/app");
