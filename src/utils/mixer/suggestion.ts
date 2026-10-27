@@ -1,4 +1,5 @@
 import { Player } from "../../types/player";
+import { DEFAULT_WEIGHTS } from "./costs";
 import { mixTracker } from "./mixTracker";
 import { clearPlannedFormats } from "./plannedFormats";
 import type { SelectGameResult, SelectionReasons } from "./selectGame";
@@ -27,6 +28,8 @@ interface Suggestion {
   chosenIds: number[];
   skippedIds: number[];
   reasons: SelectionReasons;
+  gameType: GameType | null;
+  names: Map<number, string>;
 }
 
 let current: Suggestion | null = null;
@@ -37,12 +40,14 @@ const keyOf = (players: { id: number }[]) =>
     .sort((a, b) => a - b)
     .join("-");
 
-export function rememberSuggestion(result: SelectGameResult): void {
+export function rememberSuggestion(result: SelectGameResult, pool: { id: number; name: string }[] = []): void {
   current = {
     key: keyOf(result.players),
     chosenIds: result.players.map(p => p.id),
     skippedIds: result.reasons.skipped.map(s => s.id),
     reasons: result.reasons,
+    gameType: result.gameType,
+    names: new Map([...pool, ...result.players].map(p => [p.id, p.name])),
   };
 }
 
@@ -65,4 +70,44 @@ export function endMixerSession(): void {
   current = null;
   mixTracker.reset();
   clearPlannedFormats();
+}
+
+/** Has this player been passed over as often as allowed, so that they play in the next game picked? */
+export function playsNext(playerId: number): boolean {
+  return isMixerEngineEnabled() && mixTracker.skipCount(playerId) >= DEFAULT_WEIGHTS.maxSkips;
+}
+
+/**
+ * Short plain-English reasons for the suggested game, or null when these are not
+ * the players the engine suggested (e.g. the host picked them by hand).
+ */
+export function explainSuggestion(players: { id: number }[]): string[] | null {
+  if (!current || current.key !== keyOf(players) || !isMixerEngineEnabled()) return null;
+  const { reasons, names } = current;
+  const name = (id: number) => names.get(id) ?? "A player";
+  const list = (ids: number[]) => {
+    const all = ids.map(name);
+    return all.length <= 1 ? all.join("") : `${all.slice(0, -1).join(", ")} and ${all[all.length - 1]}`;
+  };
+
+  const lines: string[] = [];
+  lines.push(`${name(reasons.longestWaiterId)} has been waiting longest.`);
+
+  const forcedOthers = reasons.forcedIds.filter(id => id !== reasons.longestWaiterId);
+  if (forcedOthers.length > 0) {
+    lines.push(`${list(forcedOthers)} ${forcedOthers.length > 1 ? "have" : "has"} been passed over already.`);
+  }
+
+  if (reasons.freshPairs === 6) lines.push("Everyone is playing with someone new.");
+  else if (reasons.freshPairs > 0) lines.push(`${reasons.freshPairs} of the 6 pairings are new tonight.`);
+
+  const mostRepeated = [...reasons.repeatedPairs].sort((a, b) => b.times - a.times)[0];
+  if (mostRepeated && mostRepeated.times >= 2) {
+    lines.push(`${list(mostRepeated.ids)} have shared ${mostRepeated.times} games already.`);
+  }
+
+  if (reasons.skipped.length > 0) {
+    lines.push(`Passed over this time: ${list(reasons.skipped.map(s => s.id))}.`);
+  }
+  return lines;
 }

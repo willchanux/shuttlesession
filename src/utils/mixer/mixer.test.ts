@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Player } from "../../types/player";
 import { PlayPreference } from "../../types/member";
-import { endMixerSession, onGameAssigned, reasonsFor, rememberSuggestion } from "./suggestion";
+import { endMixerSession, explainSuggestion, onGameAssigned, playsNext, reasonsFor, rememberSuggestion } from "./suggestion";
 import { mixTracker } from "./mixTracker";
 import { MixTracker, StorageLike, MIX_TRACKER_KEY } from "./mixTracker";
 import { selectGame } from "./selectGame";
@@ -285,5 +285,46 @@ describe("suggestions and the tracker", () => {
     onGameAssigned(players, "Mixed");
     endMixerSession();
     expect(mixTracker.pairCount(players[0].id, players[1].id)).toBe(0);
+  });
+});
+
+describe("explaining a suggestion", () => {
+  beforeEach(() => {
+    endMixerSession();
+    localStorage.setItem("selectionEngine", "mixer");
+  });
+
+  it("explains the suggested group in plain words", () => {
+    const players = [man(), man(), lady(), lady()];
+    const pool = [...players, man(), man()];
+    rememberSuggestion(
+      {
+        players, gameType: "Mixed",
+        reasons: {
+          longestWaiterId: players[0].id, forcedIds: [players[0].id, pool[4].id],
+          skipped: [{ id: pool[5].id, timesSkipped: 1 }], freshPairs: 4,
+          repeatedPairs: [{ ids: [players[0].id, players[1].id], times: 3 }], costs: {},
+        },
+      },
+      pool
+    );
+    const lines = explainSuggestion(players)!;
+    expect(lines[0]).toBe(`${players[0].name} has been waiting longest.`);
+    expect(lines.join(" ")).toContain("4 of the 6 pairings are new tonight.");
+    expect(lines.join(" ")).toContain("shared 3 games");
+    expect(lines.join(" ")).toContain(`Passed over this time: ${pool[5].name}.`);
+  });
+
+  it("gives nothing for a game the host picked by hand", () => {
+    expect(explainSuggestion([man(), man(), lady(), lady()])).toBeNull();
+  });
+
+  it("says who plays next once they have been passed over twice, only with the mixer on", () => {
+    mixTracker.commitSelection([], [77]);
+    expect(playsNext(77)).toBe(false);
+    mixTracker.commitSelection([], [77]);
+    expect(playsNext(77)).toBe(true);
+    localStorage.removeItem("selectionEngine");
+    expect(playsNext(77)).toBe(false);
   });
 });

@@ -14,4 +14,6 @@ export {
   reasonsFor,
   onGameAssigned,
   endMixerSession,
+  explainSuggestion,
+  playsNext,
 } from "./suggestion";

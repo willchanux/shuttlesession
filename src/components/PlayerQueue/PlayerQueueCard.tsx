@@ -6,6 +6,7 @@ import { Player } from "@/types/player";
 import { PiggybackPair } from "@/hooks/usePiggybackPairs";
 import { getPiggybackEnabled } from "@/utils/storageUtils";
 import { PlayerActionsMenu } from "./PlayerActionsMenu";
+import { playsNext } from "@/utils/mixer/suggestion";
 
 interface PlayerQueueCardProps {
   player: Player;
@@ -85,6 +86,11 @@ export function PlayerQueueCard({
           <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300 flex items-center gap-1">
             <Pause size={12} />
             Resting
+          </Badge>
+        )}
+        {!player.isResting && playsNext(player.id) && (
+          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-800 border-amber-300">
+            Plays next
           </Badge>
         )}
         {/* PIGGYBACK BADGE */}

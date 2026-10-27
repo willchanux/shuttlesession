@@ -5,6 +5,7 @@ import { PlayPreference } from "@/types/member";
 import { CheckCircle } from "lucide-react";
 import { PlayerCardSmall } from "./PlayerCardSmall";
 import { determineBestGameType } from "@/utils/gameValidation";
+import { explainSuggestion } from "@/utils/mixer/suggestion";
 
 interface Player {
   id: number;
@@ -36,6 +37,7 @@ export function NextGame({
   const [gameType, setGameType] = useState<PlayPreference>("Open");
   
   const isGameReady = safePlayers.length === 4;
+  const reasons = isGameReady ? explainSuggestion(safePlayers) : null;
   
   useEffect(() => {
     if (safePlayers.length === 4) {
@@ -127,6 +129,17 @@ export function NextGame({
             </div>
           </div>
           
+          {reasons && (
+            <details className="mt-3 text-sm text-gray-700">
+              <summary className="cursor-pointer text-green-800 font-medium">Why this group?</summary>
+              <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                {reasons.map(line => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+
           <div className="mt-4 text-right">
             <Button variant="outline" size="sm" onClick={onClear}>
               Clear Selection
