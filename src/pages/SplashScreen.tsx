@@ -59,7 +59,9 @@ const SplashScreen = () => {
   // When user confirms warning, open Player of Month dialog
   const handlePOMConfirmed = () => {
     setShowPOMConfirm(false);
-    setPOMDialogOpen(true);
+    // Open the next one only after the confirmation has finished closing:
+    // two dialogs changing at once can leave the page unclickable
+    setTimeout(() => setPOMDialogOpen(true), 300);
   };
 
   return (

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ import { useAllTimePlayerRankings } from "@/hooks/useAllTimePlayerRankings";
 import { gameHistoryDB } from "@/utils/indexedDbUtils";
 import { Medal } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { releaseStuckPointerEvents } from "@/utils/releaseStuckPointerEvents";
 
 interface PlayerOfMonthDialogProps {
   isOpen: boolean;
@@ -39,6 +40,13 @@ export function PlayerOfMonthDialog({ isOpen, onClose }: PlayerOfMonthDialogProp
   const { topPlayers, hasScores } = useAllTimePlayerRankings(isOpen);
   const [resetting, setResetting] = useState(false);
   const isMobile = useIsMobile();
+
+  // Safety net: once closed, make sure the page is clickable again
+  useEffect(() => {
+    if (isOpen) return;
+    const timer = setTimeout(() => releaseStuckPointerEvents(), 400);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
 
   // Reset all-time stats and also reset wins/losses in localStorage for all members
   const handleClose = async () => {
