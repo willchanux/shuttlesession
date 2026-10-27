@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { preferencesForGender } from "@/utils/preferences";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -62,7 +63,7 @@ export function MemberForm({
       name: trimmedName,
       gender,
       isGuest,
-      playPreferences: preferencesEnabled ? playPreferences : []
+      playPreferences: preferencesEnabled ? preferencesForGender(gender, playPreferences) : []
     });
   };
 
@@ -93,7 +94,11 @@ export function MemberForm({
           <Label>Gender</Label>
           <RadioGroup 
             value={gender}
-            onValueChange={(value) => setGender(value as "male" | "female")}
+            onValueChange={(value) => {
+              const next = value as "male" | "female";
+              setGender(next);
+              setPlayPreferences(prev => preferencesForGender(next, prev));
+            }}
             className="flex flex-col space-y-2"
           >
             <div className="flex items-center space-x-3 cursor-pointer hover:bg-accent/50 rounded-md p-2 transition-colors">

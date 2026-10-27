@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { preferencesForGender } from "@/utils/preferences";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ export function CreateMemberForm({
       name: name.trim(),
       gender,
       isGuest,
-      playPreferences: preferencesEnabled ? playPreferences : [],
+      playPreferences: preferencesEnabled ? preferencesForGender(gender, playPreferences) : [],
     });
   };
 
