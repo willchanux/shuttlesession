@@ -29,8 +29,14 @@ export function CompleteGameConfirmDialog({
   scoreKeepingEnabled
 }: CompleteGameConfirmDialogProps) {
   const handleConfirm = () => {
-    onConfirm();
     onOpenChange(false);
+    if (scoreKeepingEnabled) {
+      // The winners sheet opens next. Let this dialog finish closing first:
+      // two dialogs changing at once can leave the whole page unclickable.
+      setTimeout(onConfirm, 300);
+    } else {
+      onConfirm();
+    }
   };
 
   return (

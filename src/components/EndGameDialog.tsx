@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
 import { useWinnerSelection } from "@/hooks/useWinnerSelection";
 import { saveGameResults } from "@/utils/gameResultsHandler";
 import { WinnerSelectionList } from "./EndGameDialog/WinnerSelectionList";
+import { releaseStuckPointerEvents } from "@/utils/releaseStuckPointerEvents";
 
 interface CourtPlayer {
   id: number;
@@ -35,6 +37,13 @@ export function EndGameDialog({
 }: EndGameDialogProps) {
   const { selectedWinners, toggleWinner, isValidSelection } = useWinnerSelection(isOpen);
   const isScoreKeepingEnabled = localStorage.getItem("scoreKeeping") !== "false";
+
+  // Safety net: once the sheet has closed, make sure the page is clickable again
+  useEffect(() => {
+    if (isOpen) return;
+    const timer = setTimeout(() => releaseStuckPointerEvents(), 400);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
 
   console.log("EndGameDialog: Received players", players.map(p => ({ id: p.id, name: p.name })));
 
